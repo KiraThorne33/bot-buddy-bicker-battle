@@ -9,12 +9,15 @@ export function useConversation() {
   const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<Message[]>([]);
+  const conversationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
+    messagesRef.current = messages;
     scrollToBottom();
   }, [messages]);
 
@@ -137,12 +140,17 @@ export function useConversation() {
     aiGPTConfig: AIConfig,
     apiKeys: APIKeys
   ) => {
+    // Clear any existing interval
+    if (conversationIntervalRef.current) {
+      clearInterval(conversationIntervalRef.current);
+    }
+    
     const continueConversation = async () => {
       if (!isConversationActive) {
         return;
       }
       
-      const currentMessages = messages.filter(m => !m.isTyping);
+      const currentMessages = messagesRef.current.filter(m => !m.isTyping);
       
       // Check stop conditions
       if (settings.stopCondition === 'messages' && currentMessages.length >= settings.messageLimit) {
@@ -154,29 +162,23 @@ export function useConversation() {
       const lastMessage = currentMessages[currentMessages.length - 1];
       if (!lastMessage) {
         // Schedule next check if no messages yet
-        setTimeout(continueConversation, 2000);
+        conversationIntervalRef.current = setTimeout(continueConversation, 2000);
         return;
       }
       
       // Determine next sender
       const nextSender = lastMessage.sender === 'ai-x' ? 'ai-gpt' : 'ai-x';
       
-      // Add some randomness to response timing
-      const responseDelay = 3000 + Math.random() * 4000; // 3-7 seconds
+      // Generate response immediately
+      const response = await generateAIResponse(nextSender, currentMessages, settings, aiXConfig, aiGPTConfig, apiKeys);
+      simulateTypingWithContent(nextSender, response);
       
-      setTimeout(async () => {
-        if (!isConversationActive) return;
-        
-        const response = await generateAIResponse(nextSender, currentMessages, settings, aiXConfig, aiGPTConfig, apiKeys);
-        simulateTypingWithContent(nextSender, response);
-        
-        // Schedule next conversation turn after typing finishes
-        setTimeout(continueConversation, 4000); // Wait for typing to complete
-      }, responseDelay);
+      // Schedule next conversation turn after typing finishes
+      conversationIntervalRef.current = setTimeout(continueConversation, 6000); // Wait for typing to complete + delay
     };
     
-    // Start the conversation loop
-    setTimeout(continueConversation, 2000); // Start after initial messages
+    // Start the conversation loop after first message
+    conversationIntervalRef.current = setTimeout(continueConversation, 4000);
   };
 
   const handleStartConversation = async (
@@ -237,6 +239,10 @@ export function useConversation() {
   const handleStopConversation = () => {
     setIsConversationActive(false);
     setConversationStartTime(null);
+    if (conversationIntervalRef.current) {
+      clearTimeout(conversationIntervalRef.current);
+      conversationIntervalRef.current = null;
+    }
     toast.info("Conversation stopped.");
   };
 

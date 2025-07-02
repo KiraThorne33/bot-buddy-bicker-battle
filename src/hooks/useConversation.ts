@@ -137,48 +137,46 @@ export function useConversation() {
     aiGPTConfig: AIConfig,
     apiKeys: APIKeys
   ) => {
-    const continueConversation = () => {
+    const continueConversation = async () => {
       if (!isConversationActive) {
         return;
       }
       
+      const currentMessages = messages.filter(m => !m.isTyping);
+      
       // Check stop conditions
-      setMessages(current => {
-        const realMessages = current.filter(m => !m.isTyping);
-        if (settings.stopCondition === 'messages' && realMessages.length >= settings.messageLimit) {
-          handleStopConversation();
-          return current;
-        }
+      if (settings.stopCondition === 'messages' && currentMessages.length >= settings.messageLimit) {
+        handleStopConversation();
+        return;
+      }
+      
+      // Get the last real message (not typing)
+      const lastMessage = currentMessages[currentMessages.length - 1];
+      if (!lastMessage) {
+        // Schedule next check if no messages yet
+        setTimeout(continueConversation, 2000);
+        return;
+      }
+      
+      // Determine next sender
+      const nextSender = lastMessage.sender === 'ai-x' ? 'ai-gpt' : 'ai-x';
+      
+      // Add some randomness to response timing
+      const responseDelay = 3000 + Math.random() * 4000; // 3-7 seconds
+      
+      setTimeout(async () => {
+        if (!isConversationActive) return;
         
-        // Get the last real message (not typing)
-        const lastMessage = realMessages[realMessages.length - 1];
-        if (!lastMessage) {
-          // Schedule next check
-          setTimeout(continueConversation, 2000);
-          return current;
-        }
+        const response = await generateAIResponse(nextSender, currentMessages, settings, aiXConfig, aiGPTConfig, apiKeys);
+        simulateTypingWithContent(nextSender, response);
         
-        // Determine next sender
-        const nextSender = lastMessage.sender === 'ai-x' ? 'ai-gpt' : 'ai-x';
-        
-        // Add some randomness to response timing
-        const responseDelay = 3000 + Math.random() * 4000; // 3-7 seconds
-        
-        setTimeout(async () => {
-          if (!isConversationActive) return;
-          const response = await generateAIResponse(nextSender, realMessages, settings, aiXConfig, aiGPTConfig, apiKeys);
-          simulateTypingWithContent(nextSender, response);
-          
-          // Schedule next conversation turn
-          setTimeout(continueConversation, responseDelay + 4000);
-        }, responseDelay);
-        
-        return current;
-      });
+        // Schedule next conversation turn after typing finishes
+        setTimeout(continueConversation, 4000); // Wait for typing to complete
+      }, responseDelay);
     };
     
     // Start the conversation loop
-    setTimeout(continueConversation, 5000); // Start after initial messages
+    setTimeout(continueConversation, 2000); // Start after initial messages
   };
 
   const handleStartConversation = async (

@@ -305,46 +305,48 @@ export function AIChat() {
   };
 
   const startConversationLoop = () => {
-    let conversationInterval: NodeJS.Timeout;
-    
     const continueConversation = () => {
       if (!isConversationActive) {
-        if (conversationInterval) clearTimeout(conversationInterval);
         return;
       }
       
       // Check stop conditions
-      const realMessages = messages.filter(m => !m.isTyping);
-      if (settings.stopCondition === 'messages' && realMessages.length >= settings.messageLimit) {
-        handleStopConversation();
-        return;
-      }
-      
-      // Get the last real message (not typing)
-      const lastMessage = realMessages[realMessages.length - 1];
-      if (!lastMessage) {
-        // Schedule next check
-        conversationInterval = setTimeout(continueConversation, 2000);
-        return;
-      }
-      
-      // Determine next sender
-      const nextSender = lastMessage.sender === 'ai-x' ? 'ai-gpt' : 'ai-x';
-      
-      // Add some randomness to response timing
-      const responseDelay = 3000 + Math.random() * 4000; // 3-7 seconds
-      
-      setTimeout(async () => {
-        const response = await generateAIResponse(nextSender, realMessages);
-        simulateTypingWithContent(nextSender, response);
+      setMessages(current => {
+        const realMessages = current.filter(m => !m.isTyping);
+        if (settings.stopCondition === 'messages' && realMessages.length >= settings.messageLimit) {
+          handleStopConversation();
+          return current;
+        }
         
-        // Schedule next conversation turn
-        conversationInterval = setTimeout(continueConversation, responseDelay + 4000);
-      }, responseDelay);
+        // Get the last real message (not typing)
+        const lastMessage = realMessages[realMessages.length - 1];
+        if (!lastMessage) {
+          // Schedule next check
+          setTimeout(continueConversation, 2000);
+          return current;
+        }
+        
+        // Determine next sender
+        const nextSender = lastMessage.sender === 'ai-x' ? 'ai-gpt' : 'ai-x';
+        
+        // Add some randomness to response timing
+        const responseDelay = 3000 + Math.random() * 4000; // 3-7 seconds
+        
+        setTimeout(async () => {
+          if (!isConversationActive) return;
+          const response = await generateAIResponse(nextSender, realMessages);
+          simulateTypingWithContent(nextSender, response);
+          
+          // Schedule next conversation turn
+          setTimeout(continueConversation, responseDelay + 4000);
+        }, responseDelay);
+        
+        return current;
+      });
     };
     
     // Start the conversation loop
-    conversationInterval = setTimeout(continueConversation, 8000); // Start after initial messages
+    setTimeout(continueConversation, 5000); // Start after initial messages
   };
 
   const handleStopConversation = () => {

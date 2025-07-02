@@ -26,7 +26,8 @@ export default {
 				foreground: 'hsl(var(--foreground))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					foreground: 'hsl(var(--primary-foreground))',
+					glow: 'hsl(var(--primary-glow))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
@@ -51,6 +52,18 @@ export default {
 				card: {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
+				},
+				'ai-x': {
+					DEFAULT: 'hsl(var(--ai-x))',
+					foreground: 'hsl(var(--ai-x-foreground))',
+					muted: 'hsl(var(--ai-x-muted))',
+					glow: 'hsl(var(--ai-x-glow))'
+				},
+				'ai-gpt': {
+					DEFAULT: 'hsl(var(--ai-gpt))',
+					foreground: 'hsl(var(--ai-gpt-foreground))',
+					muted: 'hsl(var(--ai-gpt-muted))',
+					glow: 'hsl(var(--ai-gpt-glow))'
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
@@ -88,7 +101,15 @@ export default {
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'glow': 'glow 2s ease-in-out infinite alternate',
+				'slide-in': 'slideIn 0.5s ease-out',
+				'pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+			},
+			backgroundImage: {
+				'gradient-cosmic': 'var(--gradient-cosmic)',
+				'gradient-ai-x': 'var(--gradient-ai-x)',
+				'gradient-ai-gpt': 'var(--gradient-ai-gpt)'
 			}
 		}
 	},

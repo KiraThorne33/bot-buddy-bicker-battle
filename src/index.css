@@ -2,39 +2,58 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* AI Chat Design System - Deep tech aesthetic with dual AI personalities */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core backgrounds - deep space theme */
+    --background: 220 15% 8%;
+    --foreground: 220 10% 95%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Cards and surfaces */
+    --card: 220 15% 10%;
+    --card-foreground: 220 10% 95%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 220 15% 10%;
+    --popover-foreground: 220 10% 95%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* AI X personality - electric blue theme */
+    --ai-x: 200 100% 60%;
+    --ai-x-foreground: 220 15% 8%;
+    --ai-x-muted: 200 30% 25%;
+    --ai-x-glow: 200 100% 70%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* AI GPT personality - cosmic purple theme */
+    --ai-gpt: 270 80% 65%;
+    --ai-gpt-foreground: 220 15% 8%;
+    --ai-gpt-muted: 270 30% 25%;
+    --ai-gpt-glow: 270 80% 75%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Primary actions */
+    --primary: 240 60% 55%;
+    --primary-foreground: 220 10% 95%;
+    --primary-glow: 240 60% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Secondary elements */
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 220 10% 85%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Muted elements */
+    --muted: 220 15% 12%;
+    --muted-foreground: 220 10% 65%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Accent highlights */
+    --accent: 220 15% 18%;
+    --accent-foreground: 220 10% 95%;
+
+    /* Destructive actions */
+    --destructive: 0 80% 55%;
+    --destructive-foreground: 220 10% 95%;
+
+    /* Borders and inputs */
+    --border: 220 15% 20%;
+    --input: 220 15% 15%;
+    --ring: 240 60% 55%;
 
     --radius: 0.5rem;
 
@@ -91,6 +110,15 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Gradients for dynamic backgrounds */
+    --gradient-cosmic: linear-gradient(135deg, hsl(var(--ai-gpt)) 0%, hsl(var(--ai-x)) 100%);
+    --gradient-ai-x: linear-gradient(135deg, hsl(var(--ai-x)) 0%, hsl(var(--ai-x-glow)) 100%);
+    --gradient-ai-gpt: linear-gradient(135deg, hsl(var(--ai-gpt)) 0%, hsl(var(--ai-gpt-glow)) 100%);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --animation-glow: glow 2s ease-in-out infinite alternate;
   }
 }
 
@@ -100,6 +128,36 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-hidden;
+  }
+  
+  /* Custom animations */
+  @keyframes glow {
+    from {
+      filter: drop-shadow(0 0 20px hsl(var(--primary-glow) / 0.5));
+    }
+    to {
+      filter: drop-shadow(0 0 30px hsl(var(--primary-glow) / 0.8));
+    }
+  }
+  
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
   }
 }

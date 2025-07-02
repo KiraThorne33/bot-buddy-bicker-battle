@@ -179,29 +179,46 @@ export function AIChat() {
   };
 
   const startConversationLoop = () => {
-    const conversationInterval = setInterval(() => {
+    let conversationInterval: NodeJS.Timeout;
+    
+    const continueConversation = () => {
       if (!isConversationActive) {
-        clearInterval(conversationInterval);
+        if (conversationInterval) clearTimeout(conversationInterval);
         return;
       }
       
-      if (settings.stopCondition === 'messages' && messages.filter(m => !m.isTyping).length >= settings.messageLimit) {
+      // Check stop conditions
+      const realMessages = messages.filter(m => !m.isTyping);
+      if (settings.stopCondition === 'messages' && realMessages.length >= settings.messageLimit) {
         handleStopConversation();
-        clearInterval(conversationInterval);
         return;
       }
       
-      const lastMessage = messages[messages.length - 1];
-      if (!lastMessage || lastMessage.isTyping) return;
+      // Get the last real message (not typing)
+      const lastMessage = realMessages[realMessages.length - 1];
+      if (!lastMessage) {
+        // Schedule next check
+        conversationInterval = setTimeout(continueConversation, 2000);
+        return;
+      }
       
+      // Determine next sender
       const nextSender = lastMessage.sender === 'ai-x' ? 'ai-gpt' : 'ai-x';
       const response = generateMockResponse(nextSender, lastMessage.content);
       
+      // Add some randomness to response timing
+      const responseDelay = 3000 + Math.random() * 4000; // 3-7 seconds
+      
       setTimeout(() => {
         simulateTyping(nextSender, response);
-      }, 2000 + Math.random() * 3000);
-      
-    }, 6000);
+        
+        // Schedule next conversation turn
+        conversationInterval = setTimeout(continueConversation, responseDelay + 4000);
+      }, responseDelay);
+    };
+    
+    // Start the conversation loop
+    conversationInterval = setTimeout(continueConversation, 8000); // Start after initial messages
   };
 
   const handleStopConversation = () => {

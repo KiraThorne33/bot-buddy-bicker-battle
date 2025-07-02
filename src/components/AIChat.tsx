@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 interface Message {
   id: string;
   content: string;
-  sender: 'ai-x' | 'ai-gpt';
+  sender: 'ai-x' | 'ai-gpt' | 'user';
   timestamp: Date;
   isTyping?: boolean;
 }
@@ -27,7 +27,7 @@ interface AIConfig {
 }
 
 interface ConversationSettings {
-  starter: 'topic' | 'freestyle' | 'roleplay' | 'story' | 'questions';
+  starter: 'topic' | 'freestyle' | 'roleplay' | 'story' | 'questions' | 'thinktank';
   stopCondition: 'manual' | 'messages' | 'time' | 'sentiment';
   messageLimit: number;
   timeLimit: number;
@@ -98,6 +98,7 @@ export function AIChat() {
   const [showAIConfig, setShowAIConfig] = useState(false);
   const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [userInput, setUserInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -264,6 +265,9 @@ export function AIChat() {
       case 'questions':
         initialPrompt = "I have a curious question for you: What's the most important decision you've ever had to make?";
         break;
+      case 'thinktank':
+        initialPrompt = `Let's discuss: ${topic}. What are your initial thoughts?`;
+        break;
     }
     
     // Start with selected first speaker
@@ -370,6 +374,20 @@ export function AIChat() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleUserMessage = () => {
+    if (!userInput.trim() || !isConversationActive) return;
+    
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      content: userInput,
+      sender: 'user',
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setUserInput('');
+  };
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto">
@@ -473,6 +491,7 @@ export function AIChat() {
                     <SelectItem value="roleplay">Role Playing</SelectItem>
                     <SelectItem value="story">Story Building</SelectItem>
                     <SelectItem value="questions">Question Tennis</SelectItem>
+                    <SelectItem value="thinktank">Thinktank Mode</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -756,8 +775,66 @@ export function AIChat() {
         )}
 
         {/* Chat Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[600px]">
-          {/* AI-X Side */}
+        {settings.starter === 'thinktank' ? (
+          <div className="space-y-4">
+            {/* Thinktank Mode - Unified Chat View */}
+            <Card className="h-[600px] flex flex-col">
+              <div className="p-4 border-b border-border bg-gradient-cosmic/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-cosmic flex items-center justify-center">
+                    <Zap className="w-4 h-4 text-cosmic-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Thinktank Discussion</h3>
+                    <p className="text-xs text-muted-foreground">You + AI-X + AI-GPT</p>
+                  </div>
+                  {isConversationActive && (
+                    <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary animate-pulse">
+                      Active
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {messages.map(message => (
+                  <ConversationMessage 
+                    key={message.id} 
+                    message={message} 
+                    sender={message.sender} 
+                  />
+                ))}
+              </div>
+            </Card>
+            
+            {/* User Input Area - Below the chat */}
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                  <span className="text-xs font-medium text-primary-foreground">YOU</span>
+                </div>
+                <div className="flex-1 flex gap-2">
+                  <Input
+                    placeholder="Share your thoughts, challenge them, or ask questions..."
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleUserMessage()}
+                    disabled={!isConversationActive}
+                  />
+                  <Button
+                    onClick={handleUserMessage}
+                    disabled={!userInput.trim() || !isConversationActive}
+                    size="sm"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[600px]">
+            {/* AI-X Side */}
           <Card className="flex flex-col">
             <div className="p-4 border-b border-border bg-gradient-ai-x/10">
               <div className="flex items-center gap-3">
@@ -820,7 +897,8 @@ export function AIChat() {
                 ))}
             </div>
           </Card>
-        </div>
+          </div>
+        )}
         
         <div ref={messagesEndRef} />
       </div>

@@ -5,7 +5,9 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Play, Square, Settings, Download, Zap, Brain } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Play, Square, Settings, Download, Zap, Brain, Key, ArrowRight } from 'lucide-react';
 import { ConversationMessage } from './ConversationMessage';
 import { toast } from 'sonner';
 
@@ -17,12 +19,26 @@ interface Message {
   isTyping?: boolean;
 }
 
+interface AIConfig {
+  model: string;
+  systemPrompt: string;
+  temperature: number;
+  maxTokens: number;
+}
+
 interface ConversationSettings {
   starter: 'topic' | 'freestyle' | 'roleplay' | 'story' | 'questions';
   stopCondition: 'manual' | 'messages' | 'time' | 'sentiment';
   messageLimit: number;
   timeLimit: number;
   topic?: string;
+  firstSpeaker: 'ai-x' | 'ai-gpt';
+  useRealAI: boolean;
+}
+
+interface APIKeys {
+  openaiKey: string;
+  xApiKey: string;
 }
 
 const PRESET_TOPICS = [
@@ -57,10 +73,29 @@ export function AIChat() {
     stopCondition: 'manual',
     messageLimit: 20,
     timeLimit: 10,
-    topic: PRESET_TOPICS[0]
+    topic: PRESET_TOPICS[0],
+    firstSpeaker: 'ai-x',
+    useRealAI: false
+  });
+  const [apiKeys, setApiKeys] = useState<APIKeys>({
+    openaiKey: '',
+    xApiKey: ''
+  });
+  const [aiXConfig, setAiXConfig] = useState<AIConfig>({
+    model: 'gpt-4o-mini',
+    systemPrompt: 'You are AI-X, a social intelligence AI that analyzes trends, social media patterns, and public discourse. You have a dynamic, data-driven personality and often reference current social trends and online conversations.',
+    temperature: 0.8,
+    maxTokens: 200
+  });
+  const [aiGPTConfig, setAiGPTConfig] = useState<AIConfig>({
+    model: 'gpt-4o',
+    systemPrompt: 'You are AI-GPT, a reasoning engine that approaches problems with deep philosophical thinking. You enjoy exploring the complexity of ideas, ethical frameworks, and connecting topics to broader questions about human nature and society.',
+    temperature: 0.7,
+    maxTokens: 200
   });
   const [customTopic, setCustomTopic] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showAIConfig, setShowAIConfig] = useState(false);
   const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -113,6 +148,66 @@ export function AIChat() {
     }, 1500 + Math.random() * 2000);
   };
 
+  // Real AI API calls
+  const callOpenAI = async (config: AIConfig, messages: { role: string; content: string }[]): Promise<string> => {
+    if (!apiKeys.openaiKey) {
+      throw new Error('OpenAI API key not provided');
+    }
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKeys.openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: [
+            { role: 'system', content: config.systemPrompt },
+            ...messages
+          ],
+          temperature: config.temperature,
+          max_tokens: config.maxTokens,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0]?.message?.content || "I couldn't generate a response.";
+    } catch (error) {
+      console.error('OpenAI API error:', error);
+      return "Sorry, I encountered an error. Using fallback response.";
+    }
+  };
+
+  const generateAIResponse = async (sender: 'ai-x' | 'ai-gpt', conversationHistory: Message[]): Promise<string> => {
+    if (!settings.useRealAI) {
+      return generateMockResponse(sender, conversationHistory[conversationHistory.length - 1]?.content || '');
+    }
+
+    const config = sender === 'ai-x' ? aiXConfig : aiGPTConfig;
+    const apiMessages = conversationHistory
+      .filter(m => !m.isTyping)
+      .slice(-10) // Last 10 messages for context
+      .map(m => ({
+        role: m.sender === sender ? 'assistant' : 'user',
+        content: m.content
+      }));
+
+    try {
+      // For now, both use OpenAI API with different models/prompts
+      // You can implement X API integration here later
+      return await callOpenAI(config, apiMessages);
+    } catch (error) {
+      toast.error(`Failed to get ${sender} response, using fallback`);
+      return generateMockResponse(sender, conversationHistory[conversationHistory.length - 1]?.content || '');
+    }
+  };
+
   const generateMockResponse = (sender: 'ai-x' | 'ai-gpt', context: string) => {
     const responses = {
       'ai-x': [
@@ -134,8 +229,14 @@ export function AIChat() {
     return responses[sender][Math.floor(Math.random() * responses[sender].length)];
   };
 
-  const handleStartConversation = () => {
+  const handleStartConversation = async () => {
     if (isConversationActive) return;
+    
+    if (settings.useRealAI && !apiKeys.openaiKey) {
+      toast.error("Please provide API keys to use real AI");
+      setShowAIConfig(true);
+      return;
+    }
     
     setMessages([]);
     setIsConversationActive(true);
@@ -165,17 +266,38 @@ export function AIChat() {
         break;
     }
     
-    // Start with AI-X
-    setTimeout(() => {
-      simulateTyping('ai-x', initialPrompt);
+    // Start with selected first speaker
+    setTimeout(async () => {
+      const response = await generateAIResponse(settings.firstSpeaker, []);
+      simulateTypingWithContent(settings.firstSpeaker, response || initialPrompt);
     }, 1000);
     
-    // Continue conversation
-    setTimeout(() => {
-      simulateTyping('ai-gpt', generateMockResponse('ai-gpt', initialPrompt));
-    }, 4000);
-    
     startConversationLoop();
+  };
+
+  const simulateTypingWithContent = (sender: 'ai-x' | 'ai-gpt', content: string) => {
+    const typingMessage: Message = {
+      id: `typing-${Date.now()}`,
+      content: '',
+      sender,
+      timestamp: new Date(),
+      isTyping: true
+    };
+    
+    setMessages(prev => [...prev, typingMessage]);
+    
+    setTimeout(() => {
+      setMessages(prev => prev.filter(msg => msg.id !== typingMessage.id));
+      
+      const finalMessage: Message = {
+        id: `msg-${Date.now()}`,
+        content,
+        sender,
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, finalMessage]);
+    }, 1500 + Math.random() * 2000);
   };
 
   const startConversationLoop = () => {
@@ -204,13 +326,13 @@ export function AIChat() {
       
       // Determine next sender
       const nextSender = lastMessage.sender === 'ai-x' ? 'ai-gpt' : 'ai-x';
-      const response = generateMockResponse(nextSender, lastMessage.content);
       
       // Add some randomness to response timing
       const responseDelay = 3000 + Math.random() * 4000; // 3-7 seconds
       
-      setTimeout(() => {
-        simulateTyping(nextSender, response);
+      setTimeout(async () => {
+        const response = await generateAIResponse(nextSender, realMessages);
+        simulateTypingWithContent(nextSender, response);
         
         // Schedule next conversation turn
         conversationInterval = setTimeout(continueConversation, responseDelay + 4000);
@@ -289,6 +411,16 @@ export function AIChat() {
                   Export
                 </Button>
               )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAIConfig(!showAIConfig)}
+                className={settings.useRealAI ? "border-ai-x text-ai-x" : ""}
+              >
+                <Key className="w-4 h-4 mr-2" />
+                AI Config
+              </Button>
             </div>
           </div>
 
@@ -385,6 +517,51 @@ export function AIChat() {
                 </div>
               )}
             </div>
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-sm font-medium mb-2 block">First Speaker</label>
+                <Select value={settings.firstSpeaker} onValueChange={(value: any) => setSettings({...settings, firstSpeaker: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ai-x">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-ai-x" />
+                        AI-X (Social Intelligence)
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="ai-gpt">
+                      <div className="flex items-center gap-2">
+                        <Brain className="w-4 h-4 text-ai-gpt" />
+                        AI-GPT (Reasoning Engine)
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium mb-2 block">AI Mode</label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={settings.useRealAI ? "outline" : "default"}
+                    size="sm"
+                    onClick={() => setSettings({...settings, useRealAI: false})}
+                  >
+                    Mock AI
+                  </Button>
+                  <Button
+                    variant={settings.useRealAI ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSettings({...settings, useRealAI: true})}
+                    className={settings.useRealAI ? "bg-ai-x text-ai-x-foreground" : ""}
+                  >
+                    Real AI
+                  </Button>
+                </div>
+              </div>
+            </div>
             
             {settings.starter === 'topic' && (
               <div className="mt-4">
@@ -423,6 +600,158 @@ export function AIChat() {
                 </div>
               </div>
             )}
+          </Card>
+        )}
+
+        {/* AI Configuration Panel */}
+        {showAIConfig && (
+          <Card className="mb-6 p-6">
+            <h3 className="text-lg font-semibold mb-4">AI Configuration</h3>
+            
+            {/* API Keys Section */}
+            <div className="mb-6 p-4 border border-border rounded-lg bg-muted/50">
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <Key className="w-4 h-4" />
+                API Keys
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="openai-key">OpenAI API Key</Label>
+                  <Input
+                    id="openai-key"
+                    type="password"
+                    placeholder="sk-..."
+                    value={apiKeys.openaiKey}
+                    onChange={(e) => setApiKeys({...apiKeys, openaiKey: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="x-key">X API Key (Optional)</Label>
+                  <Input
+                    id="x-key"
+                    type="password"
+                    placeholder="For future X integration..."
+                    value={apiKeys.xApiKey}
+                    onChange={(e) => setApiKeys({...apiKeys, xApiKey: e.target.value})}
+                    disabled
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* AI-X Configuration */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="p-4 border border-ai-x/30 rounded-lg bg-ai-x/5">
+                <h4 className="font-medium mb-3 text-ai-x flex items-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  AI-X Configuration
+                </h4>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label>Model</Label>
+                    <Select value={aiXConfig.model} onValueChange={(value) => setAiXConfig({...aiXConfig, model: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gpt-4o">GPT-4o (Best)</SelectItem>
+                        <SelectItem value="gpt-4o-mini">GPT-4o Mini (Fast)</SelectItem>
+                        <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                        <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Temperature: {aiXConfig.temperature}</Label>
+                    <Slider
+                      value={[aiXConfig.temperature]}
+                      onValueChange={([value]) => setAiXConfig({...aiXConfig, temperature: value})}
+                      max={2}
+                      min={0}
+                      step={0.1}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Max Tokens: {aiXConfig.maxTokens}</Label>
+                    <Slider
+                      value={[aiXConfig.maxTokens]}
+                      onValueChange={([value]) => setAiXConfig({...aiXConfig, maxTokens: value})}
+                      max={500}
+                      min={50}
+                      step={25}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>System Prompt</Label>
+                    <Textarea
+                      value={aiXConfig.systemPrompt}
+                      onChange={(e) => setAiXConfig({...aiXConfig, systemPrompt: e.target.value})}
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* AI-GPT Configuration */}
+              <div className="p-4 border border-ai-gpt/30 rounded-lg bg-ai-gpt/5">
+                <h4 className="font-medium mb-3 text-ai-gpt flex items-center gap-2">
+                  <Brain className="w-4 h-4" />
+                  AI-GPT Configuration
+                </h4>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label>Model</Label>
+                    <Select value={aiGPTConfig.model} onValueChange={(value) => setAiGPTConfig({...aiGPTConfig, model: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gpt-4o">GPT-4o (Best)</SelectItem>
+                        <SelectItem value="gpt-4o-mini">GPT-4o Mini (Fast)</SelectItem>
+                        <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                        <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Temperature: {aiGPTConfig.temperature}</Label>
+                    <Slider
+                      value={[aiGPTConfig.temperature]}
+                      onValueChange={([value]) => setAiGPTConfig({...aiGPTConfig, temperature: value})}
+                      max={2}
+                      min={0}
+                      step={0.1}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Max Tokens: {aiGPTConfig.maxTokens}</Label>
+                    <Slider
+                      value={[aiGPTConfig.maxTokens]}
+                      onValueChange={([value]) => setAiGPTConfig({...aiGPTConfig, maxTokens: value})}
+                      max={500}
+                      min={50}
+                      step={25}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>System Prompt</Label>
+                    <Textarea
+                      value={aiGPTConfig.systemPrompt}
+                      onChange={(e) => setAiGPTConfig({...aiGPTConfig, systemPrompt: e.target.value})}
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </Card>
         )}
 

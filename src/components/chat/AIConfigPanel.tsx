@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,8 +26,10 @@ export function AIConfigPanel({
   setAiGPTConfig 
 }: AIConfigPanelProps) {
   return (
-    <Card className="mb-6 p-6">
+    <Card className="mb-6 p-6 max-h-[500px]">
       <h3 className="text-lg font-semibold mb-4">AI Configuration</h3>
+      <ScrollArea className="h-full">
+        <div className="pr-4">
       
       {/* API Keys Section */}
       <div className="mb-6 p-4 border border-border rounded-lg bg-muted/50">
@@ -172,6 +175,8 @@ export function AIConfigPanel({
           </div>
         </div>
       </div>
+        </div>
+      </ScrollArea>
     </Card>
   );
 }

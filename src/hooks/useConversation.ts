@@ -146,14 +146,18 @@ export function useConversation() {
     }
     
     const continueConversation = async () => {
+      console.log('continueConversation called, isConversationActive:', isConversationActive);
       if (!isConversationActive) {
+        console.log('Conversation not active, returning');
         return;
       }
       
       const currentMessages = messagesRef.current.filter(m => !m.isTyping);
+      console.log('Current messages count:', currentMessages.length, 'messages:', currentMessages);
       
       // Check stop conditions
       if (settings.stopCondition === 'messages' && currentMessages.length >= settings.messageLimit) {
+        console.log('Message limit reached, stopping conversation');
         handleStopConversation();
         return;
       }
@@ -161,6 +165,7 @@ export function useConversation() {
       // Get the last real message (not typing)
       const lastMessage = currentMessages[currentMessages.length - 1];
       if (!lastMessage) {
+        console.log('No messages yet, scheduling next check');
         // Schedule next check if no messages yet
         conversationIntervalRef.current = setTimeout(continueConversation, 2000);
         return;
@@ -168,9 +173,11 @@ export function useConversation() {
       
       // Determine next sender
       const nextSender = lastMessage.sender === 'ai-x' ? 'ai-gpt' : 'ai-x';
+      console.log('Last sender:', lastMessage.sender, 'Next sender:', nextSender);
       
       // Generate response immediately
       const response = await generateAIResponse(nextSender, currentMessages, settings, aiXConfig, aiGPTConfig, apiKeys);
+      console.log('Generated response for', nextSender, ':', response.substring(0, 50) + '...');
       simulateTypingWithContent(nextSender, response);
       
       // Schedule next conversation turn after typing finishes

@@ -11,6 +11,7 @@ export function useConversation() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<Message[]>([]);
   const conversationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isConversationActiveRef = useRef<boolean>(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -18,8 +19,9 @@ export function useConversation() {
 
   useEffect(() => {
     messagesRef.current = messages;
+    isConversationActiveRef.current = isConversationActive;
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isConversationActive]);
 
   // Real AI API calls
   const callOpenAI = async (config: AIConfig, messages: { role: string; content: string }[], apiKeys: APIKeys): Promise<string> => {
@@ -146,8 +148,8 @@ export function useConversation() {
     }
     
     const continueConversation = async () => {
-      console.log('continueConversation called, isConversationActive:', isConversationActive);
-      if (!isConversationActive) {
+      console.log('continueConversation called, isConversationActive:', isConversationActiveRef.current);
+      if (!isConversationActiveRef.current) {
         console.log('Conversation not active, returning');
         return;
       }
